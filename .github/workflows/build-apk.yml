@@ -1,0 +1,63 @@
+name: Build Command OS APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-agents-apk:
+    name: Build Mathnotes Command OS APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Accept Android SDK Licenses
+        run: |
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Build Android Release APK
+        env:
+          NODE_OPTIONS: "--max_old_space_size=4096"
+          GRADLE_OPTS: "-Dorg.gradle.internal.http.socketTimeout=120000 -Dorg.gradle.internal.http.connectionTimeout=120000"
+        run: |
+          npx expo prebuild --platform android --clean --no-install
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon -Dorg.gradle.jvmargs="-Xmx4096m"
+          mkdir -p ../dist-apks
+          cp app/build/outputs/apk/release/*.apk ../dist-apks/mathnotes-agents.apk
+
+      - name: Publish Standalone GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: "Mathnotes Command OS v1.0.0 (Official Release APK)"
+          body: |
+            ### Official Mathnotes Command OS (Agents) APK (v1.0.0)
+
+            Sovereign EdTech Command OS & Business Automation Hub for MathNotes.courses.
+            - Executive Cockpit (Tutor LMS, FluentCRM, VM SEO Brain Telemetry)
+            - Autonomous JEE/NEET DPP Generator
+            - VM SEO Brain 50,000 Traffic Radar
+            - FluentCRM VIP Nurture Desk
+            - Paperclip Company MAT Command Console
+          files: dist-apks/mathnotes-agents.apk
